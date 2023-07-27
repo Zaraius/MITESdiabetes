@@ -10,7 +10,7 @@ using Plots, CSV, DataFrames, DataSets, Flux ,JuliaHubData, GLM, MLJ
 # ╔═╡ dd4238d5-1157-4336-953b-2c9ef586da69
 md"""
 
-## Step-by-step building of classifiers: Logistic regression + MLP
+## YOOOOOOOOOOOOOOOOOO building of classifiers: Logistic regression + MLP
 ##### Homework Assigment 4. Due: **Sunday, July 30 by 12 PM ET**
 
 """
@@ -2027,7 +2027,7 @@ version = "1.4.1+0"
 
 # ╔═╡ Cell order:
 # ╠═d8335195-71a5-48e1-8099-2cae5214b2cb
-# ╟─dd4238d5-1157-4336-953b-2c9ef586da69
+# ╠═dd4238d5-1157-4336-953b-2c9ef586da69
 # ╟─9b9fdda1-fcd4-46e1-a474-94087c408bf5
 # ╟─93b7f825-5028-45c5-a110-b3b0385fee52
 # ╠═d8a8dd29-7097-492c-b01e-ebeb4b4e6ad1
