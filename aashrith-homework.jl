@@ -4,47 +4,18 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ d8335195-71a5-48e1-8099-2cae5214b2cb
+# ╔═╡ dedd765c-b406-4ba6-8a0f-f204e43043b0
 using Plots, CSV, DataFrames, DataSets, Flux ,JuliaHubData, GLM, MLJ
 
-# ╔═╡ dd4238d5-1157-4336-953b-2c9ef586da69
-md"""
-
-## YOOOOOOOOOOOOOOOOOO building of classifiers: Logistic regression + MLP
-##### Homework Assigment 4. Due: **Sunday, July 30 by 12 PM ET**
-
-"""
-
-# ╔═╡ 9b9fdda1-fcd4-46e1-a474-94087c408bf5
-md"""
-In this HW assignment, you will learn to build two classifiers that, given a medical record, predict whether the person is diabetic. Below, I have included the complete process solved with logistic regression, and your task is to repeat it for MLP.
-"""
-
-# ╔═╡ 93b7f825-5028-45c5-a110-b3b0385fee52
-md"""
-##### About data:
-Follow the instructions to upload a CSV to your JuliaHub account and read it as a DataFrame as shown below. 
-"""
-
-# ╔═╡ d8a8dd29-7097-492c-b01e-ebeb4b4e6ad1
-diabetes = open(Vector{UInt8}, dataset("msrosito/diabetes")) do buf
+# ╔═╡ 4a0cb1f6-dc5f-44e0-b632-13dfbb842f97
+diabetes = open(Vector{UInt8}, dataset("achej2006/cut500")) do buf
     CSV.read(buf, DataFrame)
 end
 
-# ╔═╡ 1c7fda2e-376f-46eb-92c8-316f7ad590b4
-md"""
-Dividing a data set into training and test sets is essential for evaluating machine learning models on unseen data. It helps prevent overfitting and enables model performance assessment. See the syntax of the following step.
-"""
-
-# ╔═╡ 6f3038a8-7c1f-48f8-be05-91ac69e30ba1
+# ╔═╡ 1675bd59-265a-4894-aea5-f49d32b374cb
 data_train, data_test = MLJ.partition(diabetes, 0.75, shuffle = true)
 
-# ╔═╡ 1d232acf-f0ad-4a8e-81fe-28a2d12c9011
-md"""
-Definition of a function to compute accuracies given probabilities:
-"""
-
-# ╔═╡ f39b55b8-7b93-439d-93bc-f8e8e8b41b4c
+# ╔═╡ bdffc9d3-35e2-4406-b921-c577f0e99175
 function compute_accuracy(pred_prob, true_labels, threshold) # we should provide both, the predictied probabilities of diabetes and the true labels
 	nobs = length(pred_prob)
 	pred_labels = []
@@ -58,192 +29,135 @@ function compute_accuracy(pred_prob, true_labels, threshold) # we should provide
 	return 1 - sum(abs.(pred_labels - true_labels))/nobs # notice that the second term is counting the misclassifications
 end
 
-# ╔═╡ 754c82ac-f0ca-4c47-8e20-4801c5d4b03f
-md"""
-##### Logistic regression classifier
-"""
 
-# ╔═╡ 6c66820e-271b-4e98-9a22-2f428723bc20
-md"""
-We will be using the library in the notebook 'LogisticRegression.jl', which was prepared for Monday's Office Hours (OH) on July 17th
-"""
+# ╔═╡ 0d3fe8fc-c04f-4ccd-9ee1-aac4fb306af1
+size(diabetes)
 
-# ╔═╡ 7f458713-ebcf-4619-b84b-bb861cef1840
-md"""
-**First step**: Building and training the model using the training set (data_train)
-"""
+# ╔═╡ 26bbffdf-895e-4cfe-bc43-717644e61d5f
+nfeatures = size(diabetes)[2] - 1
 
-# ╔═╡ eca9e1fb-013c-4774-92a6-193d09c4d1ec
+# ╔═╡ 8a460db3-41de-41e6-8f7c-fa32d9355b7f
 begin
-	formula = @formula(diabetes ~ 1 + pregnant + glucose + pressure + triceps + insulin + mass + pedigree + age)
-	logreg = fit(GeneralizedLinearModel, formula, data_train, Bernoulli(), LogitLink() )
-end
-
-# ╔═╡ 34039046-d8a5-4f24-8fe9-c137a24c022f
-md"""
-**Second step**: Making predictions to futher evaluate the model accuracy for the training set and the test set. Remember that the output of our model consists of probabilities.
-"""
-
-# ╔═╡ 2eb5d8e9-2c9b-4c4a-b0c6-678d73219d5e
-begin
-	preditions_training = GLM.predict(logreg, data_train)
-	predictions_test = GLM.predict(logreg, data_test)
-end
-
-# ╔═╡ 067ccd49-a0f5-4aa5-818a-58e682f6f64c
-md"""
-**Third step**: Computing accuracies. We use a threshold of 0.5.
-"""
-
-# ╔═╡ afba7554-e433-4a9d-a793-e4b5e84bebc5
-begin
-	threshold = 0.5
-	println("Accuracy (training): ", compute_accuracy(preditions_training, data_train.diabetes, threshold))
-	println("Accuracy (test): ", compute_accuracy(predictions_test, data_test.diabetes, threshold))	
-end
-
-# ╔═╡ d72d3c33-b945-41eb-9cc2-135e56ffb1d1
-md"""
-##### Multilayer perceptron classifier
-"""
-
-# ╔═╡ e0ea4712-9513-4446-a6e6-acab13d9426c
-md"""
-Complete the cells below to build, train, and evaluate a MLP to perform this classification.
-
-Check: https://github.com/msrosito/data-to-predictions/blob/main/MultiLayerPerceptron-HW3.jl
-
-
-"""
-
-# ╔═╡ 92a39b60-6d2c-429c-9c5e-ea5d868f1e16
-md"""
-We are going to convert our data frame in a vector of features and a vector of labels to be consistent with our previous work.
-"""
-
-# ╔═╡ edd3b9ff-7d4c-4d3e-8e07-dc2ef0e09543
-size(diabetes) ## size of the dataframe: nrows, ncolumns
-
-# ╔═╡ 8f9e726a-e68a-4a69-8cbc-669b59f728fa
-nfeatures = size(diabetes)[2] - 1 #number of columns -1
-
-# ╔═╡ e4e080e7-7a39-4a12-8266-349c5f707c1e
-begin
-	## training set
 	ntrain = size(data_train)[1] # number of observations in the training data set
-	x_train = [ Vector(data_train[i, 1:nfeatures]) for i in 1:ntrain] # we are choosing the first nfeatures columns to discard the column of labels
-	y_train = Vector(data_train[:, nfeatures + 1]) # last column as a vector
+	x_train = [ Vector(data_train[i, 2:nfeatures+1]) for i in 1:ntrain] # we are choosing the first nfeatures columns to discard the column of labels
+	y_train = Vector(data_train[:, 1]) # first column as a vector
 
 	data_train_mlp = [(x_train, y_train)]
 end
 
-# ╔═╡ 7110da27-6db1-4e52-9aa9-2306327fcdec
+# ╔═╡ 4ae98ccf-a78b-4a4f-a76e-3edb1bc139b1
 begin
 	## test set
 	ntest = size(data_test)[1] # number of observations in the test data set
-	x_test = [ Vector(data_test[i, 1:nfeatures]) for i in 1:ntest] # we are choosing the first nfeatures columns to discard the column of labels
-	y_test = Vector(data_test[:, nfeatures + 1]) # last column as a vector
+	x_test = [ Vector(data_test[i, 2:nfeatures+1]) for i in 1:ntest] # we are choosing the first nfeatures columns to discard the column of labels
+	y_test = Vector(data_test[:, 1]) # last column as a vector
 
 	data_test_mlp = [(x_test, y_test)]
 end
 
-# ╔═╡ df67a751-114e-4ce6-9ccb-a0a0baff7719
-md"""
-**First step**: 
-"""
-
-# ╔═╡ 9c133f6d-6d37-4601-af09-5ded1687cc18
-md"""
-Building the MLP. 
-
-About this NN:
-
-- The input layer must consider all the features as input
-- The first hidden layer has four neurons
-- The second hidden layer has six neurons
-- The output layer has only one element (number of classes - 1, since we are computing probabilities)
-- Activation function: sigmoid (σ)
-
-Use the code in HW3 to build this model. Remember that the output of our model consists on probabilities.
-
-"""
-
-# ╔═╡ a3124dc5-4197-45ec-a28d-703bc77d6775
+# ╔═╡ 12632674-442d-4be7-b2d0-bc3fc1c9cac5
 begin
-# building the model
-nlabels = 2
-insize, outsize = nfeatures, nlabels - 1
-
-#model = Chain(Dense(insize, 4, σ),
+	# building the model
+	nlabels = 2
+	insize, outsize = nfeatures, nlabels - 1
+	modelbase = Chain(Dense(insize, 18, σ),
 		# first connection: nfeatures inputs, 4 outputs
-		# complete
+		Dense(18, 6, σ),
 		# second connection: 4 inupts, 6 outputs
-		# complete
+		Dense(6, outsize, σ))
 		#third connection: 6 inputs, 1 output
+	modellayer = Chain(Dense(insize, 18, σ),
+		# first connection: nfeatures inputs, 18 outputs
+		Dense(18, 12, σ),
+		# second connection: 18 inupts, 12 outputs
+		Dense(12, 6, σ),
+		#third connection: 12 inputs, 6 outputs
+		Dense(6, 3, σ),
+		#fourth connection: 6 inputs, 3 outputs
+		Dense(3, outsize, σ))
+		#fifth connections: 3 inputs, 1 output
+	modelneuron = Chain(Dense(insize, 42, σ),
+		# first connection: nfeatures inputs, 42 outputs
+		Dense(42, 10, σ),
+		# second connection: 42 inupts, 10 outputs
+		Dense(10, outsize, σ))
+		#third connection: 10 inputs, 1 output
+	
 end
 
-# ╔═╡ 644d317b-741e-450f-b8c1-4a7b76ca6839
-md"""
-Training: 
 
-* Loss function: binary cross entropy
-* Optimizer: gradient descent
-* Number of epochs: 700
-"""
-
-# ╔═╡ 6f93b147-dc9c-45b0-81eb-900cd78a0bec
+# ╔═╡ cc6516f0-e9d2-490e-94d7-107bc007460d
 begin 
 	# defining loss	
 	loss(m, x, y) = Flux.logitbinarycrossentropy(first.(m.(x)), y)
     # broadcast operation: m is evaluated in each component of the vector 
 
-	# optimizer = complete (use gradient descent with a learning rate of 0.2)
+	optimizer = Descent(0.2)
 
-	 n_epochs = 700
+	 n_epochs = 1
 end	
 
-# ╔═╡ 7e126d2c-fd57-4c30-9ca7-33cf26e616f4
+# ╔═╡ 535f050b-4a4f-4aaa-a937-37e3d613bc27
 begin
 	# training (pay attention to the syntax)
 	
-	losses = [] # history of losses
+	lossesbase = [] # history of losses
 	
 	for _ in 1:n_epochs
 	    
-	    # complete training
+	    Flux.train!(loss, modelbase, data_train_mlp, optimizer)
 	    
 	    # Accumulate losses
-#	    l = loss(model, x_train, y_train)
-#	    push!(losses, l)
+	    l = loss(modelbase, x_train, y_train)
+	    push!(lossesbase, l)
 		
 	end
+
+	losseslayer = [] # history of losses
+	
+	for _ in 1:n_epochs
+	    
+	    Flux.train!(loss, modellayer, data_train_mlp, optimizer)
+	    
+	    # Accumulate losses
+	    l = loss(modellayer, x_train, y_train)
+	    push!(losseslayer, l)
+		
+	end
+
+	lossesneuron = [] # history of losses
+	
+	for _ in 1:n_epochs
+	    
+	    Flux.train!(loss, modelneuron, data_train_mlp, optimizer)
+	    
+	    # Accumulate losses
+	    l = loss(modelneuron, x_train, y_train)
+	    push!(lossesneuron, l)
+		
+	end
+	println()
 end
 
-# ╔═╡ 79c40127-d47c-4abf-a2a8-84568eaa16a0
-md"""
-**Second step**
-"""
-
-# ╔═╡ 14960d7b-cc5e-4803-986b-fe8f3f1e2cfb
-md"""
-Predicted probabilities
-"""
-
-# ╔═╡ fc8a73c8-7a85-4bd4-b699-7592b82b0745
+# ╔═╡ 0189847e-d94b-4620-a145-7635b6ab889c
 begin
-	preditions_trainingMLP = first.(model.(x_train))
-	predictions_testMLP = first.(model.(x_test))
+	predictions_trainingMLPbase = first.(modelbase.(x_train))
+	predictions_testMLPbase = first.(modelbase.(x_test))
+	predictions_trainingMLPlayer = first.(modellayer.(x_train))
+	predictions_testMLPlayer = first.(modellayer.(x_test))
+	predictions_trainingMLPneuron = first.(modelneuron.(x_train))
+	predictions_testMLPneuron = first.(modelneuron.(x_test))
 end
 
-# ╔═╡ bd5ab895-5907-471f-a1b2-0d6308c285f7
-md"""
-**Third step**
-"""
-
-# ╔═╡ a4e22df2-0bbc-4879-ba36-c7bc796838ad
+# ╔═╡ a28407bf-e2fc-414c-b6d4-64d56cfc25b9
 begin
-	println("Accuracy (training): ", compute_accuracy(preditions_trainingMLP, y_train, threshold))
-	println("Accuracy (test): ", compute_accuracy(predictions_testMLP, y_test, threshold))	
+	threshold = 0.5
+	println("Base Accuracy (training): ", compute_accuracy(predictions_trainingMLPbase, y_train, threshold))
+	println("Base Accuracy (test): ", compute_accuracy(predictions_testMLPbase, y_test, threshold))
+	println("Layer Accuracy (training): ", compute_accuracy(predictions_trainingMLPlayer, y_train, threshold))
+	println("Layer Accuracy (test): ", compute_accuracy(predictions_testMLPlayer, y_test, threshold))
+	println("Neuron Accuracy (training): ", compute_accuracy(predictions_trainingMLPneuron, y_train, threshold))
+	println("Neuron Accuracy (test): ", compute_accuracy(predictions_testMLPneuron, y_test, threshold))	
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -260,13 +174,13 @@ Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 
 [compat]
 CSV = "~0.10.11"
-DataFrames = "~1.6.0"
+DataFrames = "~1.6.1"
 DataSets = "~0.2.9"
 Flux = "~0.13.17"
 GLM = "~1.8.3"
 JuliaHubData = "~0.3.6"
 MLJ = "~0.19.2"
-Plots = "~1.38.16"
+Plots = "~1.38.17"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -275,7 +189,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "5500795ad0f4859386c4416f2f02f34f5bc65346"
+project_hash = "7531e6c451627ac60864149c5d584c9dfd7a0f89"
 
 [[deps.ARFFFiles]]
 deps = ["CategoricalArrays", "Dates", "Parsers", "Tables"]
@@ -481,9 +395,9 @@ version = "0.3.0"
 
 [[deps.Compat]]
 deps = ["Dates", "LinearAlgebra", "UUIDs"]
-git-tree-sha1 = "4e88377ae7ebeaf29a047aa1ee40826e0b708a5d"
+git-tree-sha1 = "5ce999a19f4ca23ea484e92a1774a61b8ca4cf8e"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "4.7.0"
+version = "4.8.0"
 
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -534,10 +448,10 @@ uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
 version = "1.15.0"
 
 [[deps.DataFrames]]
-deps = ["Compat", "DataAPI", "Future", "InlineStrings", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrecompileTools", "PrettyTables", "Printf", "REPL", "Random", "Reexport", "SentinelArrays", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
-git-tree-sha1 = "089d29c0fc00a190661517e4f3cba5dcb3fd0c08"
+deps = ["Compat", "DataAPI", "DataStructures", "Future", "InlineStrings", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrecompileTools", "PrettyTables", "Printf", "REPL", "Random", "Reexport", "SentinelArrays", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
+git-tree-sha1 = "04c738083f29f86e62c8afc341f0967d8717bdb8"
 uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-version = "1.6.0"
+version = "1.6.1"
 
 [[deps.DataSets]]
 deps = ["AbstractTrees", "Base64", "Markdown", "REPL", "ReplMaker", "ResourceContexts", "SHA", "TOML", "UUIDs"]
@@ -589,9 +503,9 @@ version = "1.15.1"
 
 [[deps.Distances]]
 deps = ["LinearAlgebra", "SparseArrays", "Statistics", "StatsAPI"]
-git-tree-sha1 = "49eba9ad9f7ead780bfb7ee319f962c811c6d3b2"
+git-tree-sha1 = "b6def76ffad15143924a2199f72a5cd883a2e8a9"
 uuid = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
-version = "0.10.8"
+version = "0.10.9"
 
 [[deps.Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
@@ -639,9 +553,9 @@ uuid = "2e619515-83b5-522b-bb60-26c02a35a201"
 version = "2.5.0+0"
 
 [[deps.ExprTools]]
-git-tree-sha1 = "c1d06d129da9f55715c6c212866f5b1bddc5fa00"
+git-tree-sha1 = "27415f162e6028e81c72b82ef756bf321213b6ec"
 uuid = "e2ba6199-217a-4e67-a87a-7c52f15ade04"
-version = "0.1.9"
+version = "0.1.10"
 
 [[deps.EzXML]]
 deps = ["Printf", "XML2_jll"]
@@ -684,9 +598,9 @@ uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
-git-tree-sha1 = "f0af9b12329a637e8fba7d6543f915fff6ba0090"
+git-tree-sha1 = "f372472e8672b1d993e93dada09e23139b509f9e"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "1.4.2"
+version = "1.5.0"
 
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
@@ -825,9 +739,9 @@ version = "2.8.1+1"
 
 [[deps.HypergeometricFunctions]]
 deps = ["DualNumbers", "LinearAlgebra", "OpenLibm_jll", "SpecialFunctions"]
-git-tree-sha1 = "83e95aaab9dc184a6dcd9c4c52aa0dc26cd14a1d"
+git-tree-sha1 = "f218fe3736ddf977e0e772bc9a586b2383da2685"
 uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
-version = "0.3.21"
+version = "0.3.23"
 
 [[deps.IRTools]]
 deps = ["InteractiveUtils", "MacroTools", "Test"]
@@ -925,9 +839,9 @@ version = "0.2.4"
 
 [[deps.KernelAbstractions]]
 deps = ["Adapt", "Atomix", "InteractiveUtils", "LinearAlgebra", "MacroTools", "PrecompileTools", "Requires", "SparseArrays", "StaticArrays", "UUIDs", "UnsafeAtomics", "UnsafeAtomicsLLVM"]
-git-tree-sha1 = "6d08ca80b621635fed9cdfeb9a4280a574020bf3"
+git-tree-sha1 = "4c5875e4c228247e1c2b087669846941fb6e0118"
 uuid = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
-version = "0.9.7"
+version = "0.9.8"
 
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1076,10 +990,10 @@ uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.0.0"
 
 [[deps.LossFunctions]]
-deps = ["CategoricalArrays", "Markdown", "Statistics"]
-git-tree-sha1 = "44a7bfeb7b5eb9386a62b9cccc6e21f406c15bea"
+deps = ["Markdown", "Requires", "Statistics"]
+git-tree-sha1 = "065084a6e63bb30b622b46c613a8f61116787174"
 uuid = "30fc2ffe-d236-52d8-8643-a9d8f7c094a7"
-version = "0.10.0"
+version = "0.10.1"
 
 [[deps.MLJ]]
 deps = ["CategoricalArrays", "ComputationalResources", "Distributed", "Distributions", "LinearAlgebra", "MLJBase", "MLJEnsembles", "MLJIteration", "MLJModels", "MLJTuning", "OpenML", "Pkg", "ProgressMeter", "Random", "ScientificTypes", "Statistics", "StatsBase", "Tables"]
@@ -1089,9 +1003,9 @@ version = "0.19.2"
 
 [[deps.MLJBase]]
 deps = ["CategoricalArrays", "CategoricalDistributions", "ComputationalResources", "Dates", "DelimitedFiles", "Distributed", "Distributions", "InteractiveUtils", "InvertedIndices", "LinearAlgebra", "LossFunctions", "MLJModelInterface", "Missings", "OrderedCollections", "Parameters", "PrettyTables", "ProgressMeter", "Random", "ScientificTypes", "Serialization", "StatisticalTraits", "Statistics", "StatsBase", "Tables"]
-git-tree-sha1 = "4cc167b6c0a3ab25d7050e4ac38fe119e97cd1ab"
+git-tree-sha1 = "9094381ad079dde43c4c74a2f71926232f11cb12"
 uuid = "a7f614a8-145f-11e9-1d2a-a57a1082229d"
-version = "0.21.11"
+version = "0.21.12"
 
 [[deps.MLJEnsembles]]
 deps = ["CategoricalArrays", "CategoricalDistributions", "ComputationalResources", "Distributed", "Distributions", "MLJBase", "MLJModelInterface", "ProgressMeter", "Random", "ScientificTypesBase", "StatsBase"]
@@ -1267,9 +1181,9 @@ version = "0.5.5+0"
 
 [[deps.Optimisers]]
 deps = ["ChainRulesCore", "Functors", "LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "6a01f65dd8583dee82eecc2a19b0ff21521aa749"
+git-tree-sha1 = "16776280310aa5553c370b9c7b17f34aadaf3c8e"
 uuid = "3bd65402-5787-11e9-1adc-39752487f4e2"
-version = "0.2.18"
+version = "0.2.19"
 
 [[deps.Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1278,9 +1192,9 @@ uuid = "91d4177d-7536-5919-b921-800302f37372"
 version = "1.3.2+0"
 
 [[deps.OrderedCollections]]
-git-tree-sha1 = "d321bf2de576bf25ec4d3e4360faca399afca282"
+git-tree-sha1 = "2e73fe17cac3c62ad1aebe70d44c963c3cfdc3e3"
 uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
-version = "1.6.0"
+version = "1.6.2"
 
 [[deps.PCRE2_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1335,9 +1249,9 @@ version = "1.3.5"
 
 [[deps.Plots]]
 deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "PrecompileTools", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "UnitfulLatexify", "Unzip"]
-git-tree-sha1 = "75ca67b2c6512ad2d0c767a7cfc55e75075f8bbc"
+git-tree-sha1 = "9f8675a55b37a70aa23177ec110f6e3f4dd68466"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.38.16"
+version = "1.38.17"
 
 [[deps.PooledArrays]]
 deps = ["DataAPI", "Future"]
@@ -1368,10 +1282,10 @@ uuid = "54e16d92-306c-5ea0-a30b-337be88ac337"
 version = "0.4.1"
 
 [[deps.PrettyTables]]
-deps = ["Crayons", "Formatting", "LaTeXStrings", "Markdown", "Reexport", "StringManipulation", "Tables"]
-git-tree-sha1 = "542b1bd03329c1d235110f96f1bb0eeffc48a87d"
+deps = ["Crayons", "LaTeXStrings", "Markdown", "Printf", "Reexport", "StringManipulation", "Tables"]
+git-tree-sha1 = "ee094908d720185ddbdc58dbe0c1cbe35453ec7a"
 uuid = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
-version = "2.2.6"
+version = "2.2.7"
 
 [[deps.Printf]]
 deps = ["Unicode"]
@@ -2026,40 +1940,18 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═d8335195-71a5-48e1-8099-2cae5214b2cb
-# ╠═dd4238d5-1157-4336-953b-2c9ef586da69
-# ╟─9b9fdda1-fcd4-46e1-a474-94087c408bf5
-# ╟─93b7f825-5028-45c5-a110-b3b0385fee52
-# ╠═d8a8dd29-7097-492c-b01e-ebeb4b4e6ad1
-# ╟─1c7fda2e-376f-46eb-92c8-316f7ad590b4
-# ╠═6f3038a8-7c1f-48f8-be05-91ac69e30ba1
-# ╟─1d232acf-f0ad-4a8e-81fe-28a2d12c9011
-# ╠═f39b55b8-7b93-439d-93bc-f8e8e8b41b4c
-# ╟─754c82ac-f0ca-4c47-8e20-4801c5d4b03f
-# ╟─6c66820e-271b-4e98-9a22-2f428723bc20
-# ╟─7f458713-ebcf-4619-b84b-bb861cef1840
-# ╠═eca9e1fb-013c-4774-92a6-193d09c4d1ec
-# ╟─34039046-d8a5-4f24-8fe9-c137a24c022f
-# ╠═2eb5d8e9-2c9b-4c4a-b0c6-678d73219d5e
-# ╟─067ccd49-a0f5-4aa5-818a-58e682f6f64c
-# ╠═afba7554-e433-4a9d-a793-e4b5e84bebc5
-# ╟─d72d3c33-b945-41eb-9cc2-135e56ffb1d1
-# ╟─e0ea4712-9513-4446-a6e6-acab13d9426c
-# ╟─92a39b60-6d2c-429c-9c5e-ea5d868f1e16
-# ╠═edd3b9ff-7d4c-4d3e-8e07-dc2ef0e09543
-# ╠═8f9e726a-e68a-4a69-8cbc-669b59f728fa
-# ╠═e4e080e7-7a39-4a12-8266-349c5f707c1e
-# ╠═7110da27-6db1-4e52-9aa9-2306327fcdec
-# ╟─df67a751-114e-4ce6-9ccb-a0a0baff7719
-# ╟─9c133f6d-6d37-4601-af09-5ded1687cc18
-# ╠═a3124dc5-4197-45ec-a28d-703bc77d6775
-# ╟─644d317b-741e-450f-b8c1-4a7b76ca6839
-# ╠═6f93b147-dc9c-45b0-81eb-900cd78a0bec
-# ╠═7e126d2c-fd57-4c30-9ca7-33cf26e616f4
-# ╟─79c40127-d47c-4abf-a2a8-84568eaa16a0
-# ╟─14960d7b-cc5e-4803-986b-fe8f3f1e2cfb
-# ╠═fc8a73c8-7a85-4bd4-b699-7592b82b0745
-# ╟─bd5ab895-5907-471f-a1b2-0d6308c285f7
-# ╠═a4e22df2-0bbc-4879-ba36-c7bc796838ad
+# ╠═dedd765c-b406-4ba6-8a0f-f204e43043b0
+# ╠═4a0cb1f6-dc5f-44e0-b632-13dfbb842f97
+# ╠═1675bd59-265a-4894-aea5-f49d32b374cb
+# ╠═bdffc9d3-35e2-4406-b921-c577f0e99175
+# ╠═0d3fe8fc-c04f-4ccd-9ee1-aac4fb306af1
+# ╠═26bbffdf-895e-4cfe-bc43-717644e61d5f
+# ╠═8a460db3-41de-41e6-8f7c-fa32d9355b7f
+# ╠═4ae98ccf-a78b-4a4f-a76e-3edb1bc139b1
+# ╠═12632674-442d-4be7-b2d0-bc3fc1c9cac5
+# ╠═cc6516f0-e9d2-490e-94d7-107bc007460d
+# ╠═535f050b-4a4f-4aaa-a937-37e3d613bc27
+# ╠═0189847e-d94b-4620-a145-7635b6ab889c
+# ╠═a28407bf-e2fc-414c-b6d4-64d56cfc25b9
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
