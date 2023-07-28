@@ -76,11 +76,8 @@ begin
 		#fourth connection: 6 inputs, 3 outputs
 		Dense(3, outsize, σ))
 		#fifth connections: 3 inputs, 1 output
-	modelneuron = Chain(Dense(insize, 42, σ),
+	modelneuron = Chain(Dense(insize, outsize, σ))
 		# first connection: nfeatures inputs, 42 outputs
-		Dense(42, 10, σ),
-		# second connection: 42 inupts, 10 outputs
-		Dense(10, outsize, σ))
 		#third connection: 10 inputs, 1 output
 	
 end
@@ -92,9 +89,11 @@ begin
 	loss(m, x, y) = Flux.logitbinarycrossentropy(first.(m.(x)), y)
     # broadcast operation: m is evaluated in each component of the vector 
 
-	optimizer = Descent(0.2)
+	optimizerb = Flux.setup(Adam(3e-4), modelbase)
+	optimizerl = Flux.setup(Adam(3e-4), modellayer)
+	optimizern = Flux.setup(Adam(3e-4), modelneuron)
 
-	 n_epochs = 1
+	 n_epochs = 70
 end	
 
 # ╔═╡ 535f050b-4a4f-4aaa-a937-37e3d613bc27
@@ -105,7 +104,7 @@ begin
 	
 	for _ in 1:n_epochs
 	    
-	    Flux.train!(loss, modelbase, data_train_mlp, optimizer)
+	    Flux.train!(loss, modelbase, data_train_mlp, optimizerb)
 	    
 	    # Accumulate losses
 	    l = loss(modelbase, x_train, y_train)
@@ -117,7 +116,7 @@ begin
 	
 	for _ in 1:n_epochs
 	    
-	    Flux.train!(loss, modellayer, data_train_mlp, optimizer)
+	    Flux.train!(loss, modellayer, data_train_mlp, optimizerl)
 	    
 	    # Accumulate losses
 	    l = loss(modellayer, x_train, y_train)
@@ -129,7 +128,7 @@ begin
 	
 	for _ in 1:n_epochs
 	    
-	    Flux.train!(loss, modelneuron, data_train_mlp, optimizer)
+	    Flux.train!(loss, modelneuron, data_train_mlp, optimizern)
 	    
 	    # Accumulate losses
 	    l = loss(modelneuron, x_train, y_train)
