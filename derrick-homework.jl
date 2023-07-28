@@ -29,6 +29,21 @@ function compute_accuracy(pred_prob, true_labels, threshold) # we should provide
 	return 1 - sum(abs.(pred_labels - true_labels))/nobs # notice that the second term is counting the misclassifications
 end
 
+function compute_recall(pred_prob, true_labels, threshold)
+	nobs = length(pred_prob)
+	pred_labels = []
+	for i in 1:nobs
+		if pred_prob[i] < threshold
+			push!(pred_labels, 0) # no diabetes
+		else
+			push!(pred_labels, 1) # diabetes
+		end
+	end
+	for i in 1:nobs
+		if pred_label[i] = true_label[i]
+	return
+
+
 # ╔═╡ 0d3fe8fc-c04f-4ccd-9ee1-aac4fb306af1
 size(diabetes)
 
