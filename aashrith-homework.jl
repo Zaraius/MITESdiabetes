@@ -76,9 +76,12 @@ begin
 		#fourth connection: 6 inputs, 3 outputs
 		Dense(3, outsize, σ))
 		#fifth connections: 3 inputs, 1 output
-	modelneuron = Chain(Dense(insize, outsize, σ))
-		# first connection: nfeatures inputs, 42 outputs
-		#third connection: 10 inputs, 1 output
+	modelneuron = Chain(Dense(insize, 42, σ),
+        # first connection: nfeatures inputs, 42 outputs
+        Dense(42, 10, σ),
+        # second connection: 42 inupts, 10 outputs
+        Dense(10, outsize, σ))
+        #third connection: 10 inputs, 1 output
 	
 end
 
@@ -92,8 +95,7 @@ begin
 	optimizerb = Flux.setup(Adam(3e-4), modelbase)
 	optimizerl = Flux.setup(Adam(3e-4), modellayer)
 	optimizern = Flux.setup(Adam(3e-4), modelneuron)
-
-	 n_epochs = 70
+	n_epochs = 100
 end	
 
 # ╔═╡ 535f050b-4a4f-4aaa-a937-37e3d613bc27
