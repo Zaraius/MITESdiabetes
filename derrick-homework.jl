@@ -4,18 +4,21 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ dedd765c-b406-4ba6-8a0f-f204e43043b0
-using Plots, CSV, DataFrames, DataSets, Flux ,JuliaHubData, GLM, MLJ
+# ╔═╡ f40aed6c-2e31-11ee-360c-ff104de6dadd
+using Plots, DataFrames, CSV, JuliaHubData, DataSets, Flux, StatsBase, MLJ
 
-# ╔═╡ 4a0cb1f6-dc5f-44e0-b632-13dfbb842f97
-#diabetes = open(Vector{UInt8}, dataset("derrickvincentjr/prediabetesremoved")) do buf
+# ╔═╡ e64f2be6-aebb-4dc9-96c4-cd7cd437686a
+diabetes = open(Vector{UInt8}, dataset("derrickvincentjr/diabetes1000")) do buf
     CSV.read(buf, DataFrame)
 end
 
-# ╔═╡ 1675bd59-265a-4894-aea5-f49d32b374cb
-data_train, data_test = MLJ.partition(diabetes, 0.75, shuffle = true)
+# ╔═╡ 3fa8b34a-c12f-426a-bbf1-21157b6571c8
+countmap(diabetes.Diabetes_011)
 
-# ╔═╡ bdffc9d3-35e2-4406-b921-c577f0e99175
+# ╔═╡ 030f7d04-b31b-43d6-9668-b42fe1a097bf
+nfeatures = size(diabetes)[2] - 1
+
+# ╔═╡ 402747cb-00ea-4b40-a02a-72e62881bbd7
 function compute_accuracy(pred_prob, true_labels, threshold) # we should provide both, the predictied probabilities of diabetes and the true labels
 	nobs = length(pred_prob)
 	pred_labels = []
@@ -29,6 +32,7 @@ function compute_accuracy(pred_prob, true_labels, threshold) # we should provide
 	return 1 - sum(abs.(pred_labels - true_labels))/nobs # notice that the second term is counting the misclassifications
 end
 
+# ╔═╡ d2855d07-6489-4256-a44f-0ee6ef14c555
 function compute_recall(pred_prob, true_labels, threshold)
 	nobs = length(pred_prob)
 	pred_labels = []
@@ -39,18 +43,24 @@ function compute_recall(pred_prob, true_labels, threshold)
 			push!(pred_labels, 1) # diabetes
 		end
 	end
+	tp = 0
+	fn = 0
 	for i in 1:nobs
-		if pred_label[i] = true_label[i]
-	return
+		if pred_labels[i] + true_labels[i] == 2
+			tp = tp + 1
+		elseif pred_labels[i] - true_labels[i] == -1
+			fn = fn + 1
+		end
+	end
+	
+	return tp / (tp + fn)
+end
+			
 
+# ╔═╡ 6acf21b0-89a6-4051-a06b-af668460e8a3
+data_train, data_test = MLJ.partition(diabetes, 0.75, shuffle = true)
 
-# ╔═╡ 0d3fe8fc-c04f-4ccd-9ee1-aac4fb306af1
-size(diabetes)
-
-# ╔═╡ 26bbffdf-895e-4cfe-bc43-717644e61d5f
-nfeatures = size(diabetes)[2] - 1
-
-# ╔═╡ 8a460db3-41de-41e6-8f7c-fa32d9355b7f
+# ╔═╡ 13f16a73-5db3-4a3a-82a8-5ea5ff63ef25
 begin
 	ntrain = size(data_train)[1] # number of observations in the training data set
 	x_train = [ Vector(data_train[i, 2:nfeatures+1]) for i in 1:ntrain] # we are choosing the first nfeatures columns to discard the column of labels
@@ -59,7 +69,7 @@ begin
 	data_train_mlp = [(x_train, y_train)]
 end
 
-# ╔═╡ 4ae98ccf-a78b-4a4f-a76e-3edb1bc139b1
+# ╔═╡ 02a0b741-39bb-43b5-8fa1-a1b762aff8c6
 begin
 	## test set
 	ntest = size(data_test)[1] # number of observations in the test data set
@@ -69,107 +79,177 @@ begin
 	data_test_mlp = [(x_test, y_test)]
 end
 
-# ╔═╡ 12632674-442d-4be7-b2d0-bc3fc1c9cac5
+# ╔═╡ 7429140f-e43e-4bf5-8dd7-8e647412d28a
+md"""
+Definition of the models and training
+"""
+
+# ╔═╡ 5ff69c9b-cf6f-4092-ad58-22d5c811766d
+loss(m, x, y) = Flux.logitbinarycrossentropy(first.(m.(x)), y)
+
+# ╔═╡ ff0b4530-bb7c-412d-b8e9-5c2173798622
+function training(model, optimizer, nepoch)
+	losses_train = []
+	losses_test = []
+	
+	for _ in 1:nepoch
+		Flux.train!(loss, model, data_train_mlp, optimizer)
+		
+		l = loss(model, x_train, y_train)
+		push!(losses_train, l)
+		
+		l = loss(model, x_test, y_test)
+		push!(losses_test, l)
+		
+	end
+	
+	return losses_train, losses_test
+end
+
+# ╔═╡ 6d620f2f-9ab0-410c-8c1c-2f09ec5e86a1
+md"""
+First model
+"""
+
+# ╔═╡ 5bad49b4-a11c-4b1a-ad90-707dadd38481
 begin
-	# building the model
-	nlabels = 2
-	insize, outsize = nfeatures, nlabels - 1
-	modelbase = Chain(Dense(insize, 18, σ),
+	
+	insize, outsize = nfeatures, 1
+
+	nepoch = 100
+	
+	modelbase = Chain(Dense(insize, 18, σ; init = Flux.glorot_normal) ,
 		# first connection: nfeatures inputs, 4 outputs
-		Dense(18, 6, σ),
+		Dense(18, 6, σ; init = Flux.glorot_normal),
 		# second connection: 4 inupts, 6 outputs
-		Dense(6, outsize, σ))
-		#third connection: 6 inputs, 1 output
-	modellayer = Chain(Dense(insize, 18, σ),
-		# first connection: nfeatures inputs, 18 outputs
-		Dense(18, 12, σ),
-		# second connection: 18 inupts, 12 outputs
-		Dense(12, 6, σ),
-		#third connection: 12 inputs, 6 outputs
-		Dense(6, 3, σ),
-		#fourth connection: 6 inputs, 3 outputs
-		Dense(3, outsize, σ))
-		#fifth connections: 3 inputs, 1 output
-	modelneuron = Chain(Dense(insize, 42, σ),
-		# first connection: nfeatures inputs, 42 outputs
-		Dense(42, 10, σ),
-		# second connection: 42 inupts, 10 outputs
-		Dense(10, outsize, σ))
-		#third connection: 10 inputs, 1 output
+		Dense(6, outsize, σ; init = Flux.glorot_normal))
+
+	println(Flux.params(modelbase))
 	
+	optimizerb = Flux.setup(Adam(1e-3), modelbase)
+	
+	lossesbase_train, lossesbase_test = training(modelbase, optimizerb, nepoch)
+
+	println(Flux.params(modelbase))
+
 end
 
-
-# ╔═╡ cc6516f0-e9d2-490e-94d7-107bc007460d
-begin 
-	# defining loss	
-	loss(m, x, y) = Flux.logitbinarycrossentropy(first.(m.(x)), y)
-    # broadcast operation: m is evaluated in each component of the vector 
-
-	optimizer = Descent(0.2)
-
-	 n_epochs = 700
-end	
-
-# ╔═╡ 535f050b-4a4f-4aaa-a937-37e3d613bc27
+# ╔═╡ f1fb545e-3b12-4a07-99aa-92096d489d45
 begin
-	# training (pay attention to the syntax)
-	
-	lossesbase = [] # history of losses
-	
-	for _ in 1:n_epochs
-	    
-	    Flux.train!(loss, modelbase, data_train_mlp, optimizer)
-	    
-	    # Accumulate losses
-	    l = loss(model, x_train, y_train)
-	    push!(lossesbase, l)
-		
-	end
-
-	losseslayer = [] # history of losses
-	
-	for _ in 1:n_epochs
-	    
-	    Flux.train!(loss, modellayer, data_train_mlp, optimizer)
-	    
-	    # Accumulate losses
-	    l = loss(model, x_train, y_train)
-	    push!(losseslayer, l)
-		
-	end
-
-	lossesneuron = [] # history of losses
-	
-	for _ in 1:n_epochs
-	    
-	    Flux.train!(loss, modelneuron, data_train_mlp, optimizer)
-	    
-	    # Accumulate losses
-	    l = loss(model, x_train, y_train)
-	    push!(lossesneuron, l)
-		
-	end
+	plot(lossesbase_train, label = "Training")
+	plot!(lossesbase_test, label = "Test")
 end
 
-# ╔═╡ 0189847e-d94b-4620-a145-7635b6ab889c
+# ╔═╡ d37e271d-f1ae-47ca-948f-e0e65eefc1d7
 begin
 	predictions_trainingMLPbase = first.(modelbase.(x_train))
+	histogram(predictions_trainingMLPbase)
 	predictions_testMLPbase = first.(modelbase.(x_test))
+end
+
+# ╔═╡ 6e0f557b-1ba0-4cc5-96ff-36201db8a71f
+begin
+	threshold = 0.5
+	println("Base Accuracy (training): ", compute_accuracy(predictions_trainingMLPbase, y_train, threshold))
+	println("Base Accuracy (test): ", compute_accuracy(predictions_testMLPbase, y_test, threshold))
+	println("Base Recall (training): ", compute_recall(predictions_trainingMLPbase, y_train, threshold))
+	println("Base Recall (test): ", compute_recall(predictions_testMLPbase, y_test, threshold))
+end
+
+# ╔═╡ ca73b1f5-9601-43c6-9a92-581e77b9c6bf
+md"""
+Second model
+"""
+
+# ╔═╡ 6f4b274c-f320-46be-b6b7-a068491b6394
+begin
+	
+	modellayer = Chain(Dense(insize, 18, σ; init = Flux.glorot_normal),
+		# first connection: nfeatures inputs, 18 outputs
+		Dense(18, 12, σ; init = Flux.glorot_normal),
+		# second connection: 18 inupts, 12 outputs
+		Dense(12, 6, σ; init = Flux.glorot_normal),
+		#third connection: 12 inputs, 6 outputs
+		Dense(6, 3, σ; init = Flux.glorot_normal),
+		#fourth connection: 6 inputs, 3 outputs
+		Dense(3, outsize, σ; init = Flux.glorot_normal))
+		#fifth connections: 3 inputs, 1 output
+
+	println(Flux.params(modellayer))
+	
+	optimizerl = Flux.setup(Adam(1e-3), modellayer)
+	
+	losseslayer_train, losseslayer_test = training(modellayer, optimizerl, nepoch)
+
+	println(Flux.params(modellayer))
+
+end
+
+# ╔═╡ 832b12bf-8777-4f88-8487-f305dfc1b208
+begin
+	plot(losseslayer_train, label = "Training")
+	plot!(losseslayer_test, label = "Test")
+end
+
+# ╔═╡ 816955dd-a4e7-4367-a8e3-7079f09c6806
+begin
 	predictions_trainingMLPlayer = first.(modellayer.(x_train))
 	predictions_testMLPlayer = first.(modellayer.(x_test))
+end
+
+# ╔═╡ e39c4376-1da9-4101-927a-d7031cd25c3c
+begin
+	println("Layer Accuracy (training): ", compute_accuracy(predictions_trainingMLPlayer, y_train, threshold))
+	println("Layer Accuracy (test): ", compute_accuracy(predictions_testMLPlayer, y_test, threshold))
+	println("Layer Recall (training): ", compute_recall(predictions_trainingMLPlayer, y_train, threshold))
+	println("Layer Recall (test): ", compute_recall(predictions_testMLPlayer, y_test, threshold))
+end
+
+# ╔═╡ d62620b2-0c4a-4af0-ab37-41d0f5756581
+md"""
+Third model
+"""
+
+# ╔═╡ 4a842f8f-c1a3-4921-84a2-d4c3079e237c
+begin
+
+	modelneuron = Chain(Dense(insize, 42, σ; init = Flux.glorot_normal),
+        # first connection: nfeatures inputs, 42 outputs
+        Dense(42, 10, σ; init = Flux.glorot_normal),
+        # second connection: 42 inupts, 10 outputs
+        Dense(10, outsize, σ; init = Flux.glorot_normal))
+        #third connection: 10 inputs, 1 output
+
+	
+	println(Flux.params(modelneuron))
+	
+	optimizern = Flux.setup(Adam(1e-3), modelneuron)
+	
+	lossesneuron_train, lossesneuron_test = training(modelneuron, optimizern, nepoch)
+
+	println(Flux.params(modelneuron))
+
+	
+end
+
+# ╔═╡ 988aab61-31d1-4e62-b3f6-8f2accacbcc6
+begin
+	plot(lossesneuron_train, label = "Training")
+	plot!(lossesneuron_test, label = "Test")
+end
+
+# ╔═╡ 750ee9c8-bd23-4266-9468-efeb27879019
+begin
 	predictions_trainingMLPneuron = first.(modelneuron.(x_train))
 	predictions_testMLPneuron = first.(modelneuron.(x_test))
 end
 
-# ╔═╡ a28407bf-e2fc-414c-b6d4-64d56cfc25b9
+# ╔═╡ 79a2fde4-e724-4744-b112-926db8c91175
 begin
-	println("Base Accuracy (training): ", compute_accuracy(predictions_trainingMLPbase, y_train, threshold))
-	println("Base Accuracy (test): ", compute_accuracy(predictions_testMLPbase, y_test, threshold))
-	println("Layer Accuracy (training): ", compute_accuracy(preditcions_trainingMLPlayer, y_train, threshold))
-	println("Layer Accuracy (test): ", compute_accuracy(predictions_testMLPlayer, y_test, threshold))
 	println("Neuron Accuracy (training): ", compute_accuracy(predictions_trainingMLPneuron, y_train, threshold))
-	println("Neuron Accuracy (test): ", compute_accuracy(predictions_testMLPneuron, y_test, threshold))	
+	println("Neuron Accuracy (test): ", compute_accuracy(predictions_testMLPneuron, y_test, threshold))
+	println("Neuron Recall (training): ", compute_recall(predictions_trainingMLPneuron, y_train, threshold))
+	println("Neuron Recall (test): ", compute_recall(predictions_testMLPneuron, y_test, threshold))
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -179,20 +259,20 @@ CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataSets = "c9661210-8a83-48f0-b833-72e62abce419"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
-GLM = "38e38edf-8417-5370-95a0-9cbb8c7f171a"
 JuliaHubData = "e241c0f9-2941-4184-86f1-92558f4420e8"
 MLJ = "add582a8-e3ab-11e8-2d5e-e98b27df1bc7"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 CSV = "~0.10.11"
 DataFrames = "~1.6.1"
 DataSets = "~0.2.9"
 Flux = "~0.13.17"
-GLM = "~1.8.3"
 JuliaHubData = "~0.3.6"
 MLJ = "~0.19.2"
 Plots = "~1.38.17"
+StatsBase = "~0.34.0"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -201,7 +281,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "7531e6c451627ac60864149c5d584c9dfd7a0f89"
+project_hash = "51210b4ba5a1aeb7985d068bd839d3b89d333a66"
 
 [[deps.ARFFFiles]]
 deps = ["CategoricalArrays", "Dates", "Parsers", "Tables"]
@@ -671,12 +751,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcu
 git-tree-sha1 = "d972031d28c8c8d9d7b41a536ad7bb0c2579caca"
 uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
 version = "3.3.8+0"
-
-[[deps.GLM]]
-deps = ["Distributions", "LinearAlgebra", "Printf", "Reexport", "SparseArrays", "SpecialFunctions", "Statistics", "StatsAPI", "StatsBase", "StatsFuns", "StatsModels"]
-git-tree-sha1 = "97829cfda0df99ddaeaafb5b370d6cab87b7013e"
-uuid = "38e38edf-8417-5370-95a0-9cbb8c7f171a"
-version = "1.8.3"
 
 [[deps.GPUArrays]]
 deps = ["Adapt", "GPUArraysCore", "LLVM", "LinearAlgebra", "Printf", "Random", "Reexport", "Serialization", "Statistics"]
@@ -1227,9 +1301,9 @@ version = "0.12.3"
 
 [[deps.Parsers]]
 deps = ["Dates", "PrecompileTools", "UUIDs"]
-git-tree-sha1 = "4b2e829ee66d4218e0cef22c0a64ee37cf258c29"
+git-tree-sha1 = "716e24b21538abc91f6205fd1d8363f39b442851"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.7.1"
+version = "2.7.2"
 
 [[deps.Pipe]]
 git-tree-sha1 = "6842804e7867b115ca9de748a0cf6b364523c16d"
@@ -1442,11 +1516,6 @@ git-tree-sha1 = "e2cc6d8c88613c05e1defb55170bf5ff211fbeac"
 uuid = "efcf1570-3423-57d1-acb7-fd33fddbac46"
 version = "1.1.1"
 
-[[deps.ShiftedArrays]]
-git-tree-sha1 = "503688b59397b3307443af35cd953a13e8005c16"
-uuid = "1277b4bf-5013-50f5-be3d-901d8477a67a"
-version = "2.0.0"
-
 [[deps.ShowCases]]
 git-tree-sha1 = "7f534ad62ab2bd48591bdeac81994ea8c445e4a5"
 uuid = "605ecd9f-84a6-4c9e-81e2-4798472b76a3"
@@ -1544,12 +1613,6 @@ deps = ["ChainRulesCore", "HypergeometricFunctions", "InverseFunctions", "Irrati
 git-tree-sha1 = "f625d686d5a88bcd2b15cd81f18f98186fdc0c9a"
 uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
 version = "1.3.0"
-
-[[deps.StatsModels]]
-deps = ["DataAPI", "DataStructures", "LinearAlgebra", "Printf", "REPL", "ShiftedArrays", "SparseArrays", "StatsBase", "StatsFuns", "Tables"]
-git-tree-sha1 = "8cc7a5385ecaa420f0b3426f9b0135d0df0638ed"
-uuid = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
-version = "0.7.2"
 
 [[deps.StringManipulation]]
 git-tree-sha1 = "46da2434b41f41ac3594ee9816ce5541c6096123"
@@ -1952,18 +2015,32 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═dedd765c-b406-4ba6-8a0f-f204e43043b0
-# ╠═4a0cb1f6-dc5f-44e0-b632-13dfbb842f97
-# ╠═1675bd59-265a-4894-aea5-f49d32b374cb
-# ╠═bdffc9d3-35e2-4406-b921-c577f0e99175
-# ╠═0d3fe8fc-c04f-4ccd-9ee1-aac4fb306af1
-# ╠═26bbffdf-895e-4cfe-bc43-717644e61d5f
-# ╠═8a460db3-41de-41e6-8f7c-fa32d9355b7f
-# ╠═4ae98ccf-a78b-4a4f-a76e-3edb1bc139b1
-# ╠═12632674-442d-4be7-b2d0-bc3fc1c9cac5
-# ╠═cc6516f0-e9d2-490e-94d7-107bc007460d
-# ╠═535f050b-4a4f-4aaa-a937-37e3d613bc27
-# ╠═0189847e-d94b-4620-a145-7635b6ab889c
-# ╠═a28407bf-e2fc-414c-b6d4-64d56cfc25b9
+# ╠═f40aed6c-2e31-11ee-360c-ff104de6dadd
+# ╠═e64f2be6-aebb-4dc9-96c4-cd7cd437686a
+# ╠═3fa8b34a-c12f-426a-bbf1-21157b6571c8
+# ╠═030f7d04-b31b-43d6-9668-b42fe1a097bf
+# ╠═402747cb-00ea-4b40-a02a-72e62881bbd7
+# ╠═d2855d07-6489-4256-a44f-0ee6ef14c555
+# ╠═6acf21b0-89a6-4051-a06b-af668460e8a3
+# ╠═13f16a73-5db3-4a3a-82a8-5ea5ff63ef25
+# ╠═02a0b741-39bb-43b5-8fa1-a1b762aff8c6
+# ╟─7429140f-e43e-4bf5-8dd7-8e647412d28a
+# ╠═ff0b4530-bb7c-412d-b8e9-5c2173798622
+# ╠═5ff69c9b-cf6f-4092-ad58-22d5c811766d
+# ╟─6d620f2f-9ab0-410c-8c1c-2f09ec5e86a1
+# ╠═5bad49b4-a11c-4b1a-ad90-707dadd38481
+# ╠═f1fb545e-3b12-4a07-99aa-92096d489d45
+# ╠═d37e271d-f1ae-47ca-948f-e0e65eefc1d7
+# ╠═6e0f557b-1ba0-4cc5-96ff-36201db8a71f
+# ╟─ca73b1f5-9601-43c6-9a92-581e77b9c6bf
+# ╠═6f4b274c-f320-46be-b6b7-a068491b6394
+# ╠═832b12bf-8777-4f88-8487-f305dfc1b208
+# ╠═816955dd-a4e7-4367-a8e3-7079f09c6806
+# ╠═e39c4376-1da9-4101-927a-d7031cd25c3c
+# ╟─d62620b2-0c4a-4af0-ab37-41d0f5756581
+# ╠═4a842f8f-c1a3-4921-84a2-d4c3079e237c
+# ╠═988aab61-31d1-4e62-b3f6-8f2accacbcc6
+# ╠═750ee9c8-bd23-4266-9468-efeb27879019
+# ╠═79a2fde4-e724-4744-b112-926db8c91175
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
